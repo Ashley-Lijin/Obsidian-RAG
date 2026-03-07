@@ -1,0 +1,58 @@
+# === Virtual Environments ===
+.venv/
+venv/
+env/
+ENV/
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+
+# === Environment Variables / Secrets ===
+.env
+.env.*
+*.key
+secrets.json
+
+# === IDE & Editor ===
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# === Jupyter Notebooks ===
+.ipynb_checkpoints/
+*.ipynb
+
+# === Testing & Coverage ===
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# === Logs ===
+*.log
+logs/
+
+# === Vector DB / Embeddings Cache ===
+chroma/
+chromadb/
+faiss_index/
+*.faiss
+*.pkl
+*.index
+
+# === Obsidian Vault (if local, don't commit vault contents) ===
+vault/
+*.md.bak
