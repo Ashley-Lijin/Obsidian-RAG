@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 import re
 import networkx as nx
+import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -25,5 +26,5 @@ def extract_links(context:str) -> list[str]:
     links = re.findall(pattern, context)
     return links
 
+
 notes = load_notes(os.getenv("VAULT_PATH"))
-print(notes)
