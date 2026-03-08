@@ -46,6 +46,7 @@ htmlcov/
 logs/
 
 # === Vector DB / Embeddings Cache ===
+.chroma_db/
 chroma/
 chromadb/
 faiss_index/
