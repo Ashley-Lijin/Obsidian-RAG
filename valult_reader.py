@@ -1,11 +1,8 @@
+from pprint import pprint
 from pathlib import Path
-import os
 import re
 import networkx as nx
 import matplotlib.pyplot as plt
-from dotenv import load_dotenv
-
-load_dotenv()
 
 def load_notes(vault_path: str) -> dict[str, dict[str, str | list[str]]]:
     vault = {}
@@ -25,6 +22,3 @@ def extract_links(context:str) -> list[str]:
     pattern = r'\[\[([^|\]]+)(?:\|[^\]]*)?\]\]'
     links = re.findall(pattern, context)
     return links
-
-
-notes = load_notes(os.getenv("VAULT_PATH"))
