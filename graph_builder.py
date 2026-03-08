@@ -1,6 +1,5 @@
 import networkx as nx
 import matplotlib.pyplot as plt
-from valult_reader import notes
 
 def build_graph(notes: dict) -> nx.DiGraph:
     graph = nx.DiGraph()
@@ -18,10 +17,3 @@ def draw_graph(graph: nx.DiGraph):
     nx.draw(graph, pos, with_labels=True, node_size=50, node_color="skyblue", font_size=10, font_weight="bold", arrowsize=10)
     plt.title("Obsidian Vault Graph")
     plt.show()
-
-
-
-graph = build_graph(notes)
-top = sorted(graph.in_degree(), key=lambda x: x[1], reverse=True)[:5]
-print("Most linked-to notes:", top)
-draw_graph(graph)

@@ -1,7 +1,10 @@
+from pprint import pprint
 from valult_reader import load_notes
 from embedder import embed_vault, get_collection
 import os
 from dotenv import load_dotenv
+from retriever import retrieve
+from graph_builder import build_graph
 
 load_dotenv()
 
@@ -10,13 +13,13 @@ collection = get_collection()
 embed_vault(notes, collection)
 print(collection.count())
 
-results = collection.query(
-    query_texts=["what is machine learning"],
-    n_results=3
-)
+graph = build_graph(notes)
 
-for i, doc in enumerate(results['documents'][0]):
-    print(f"--- Result {i+1} ---")
-    print(results['metadatas'][0][i]['note_name'])
-    print(doc[:200])
-    print()
+result = retrieve("what is a neural network", notes, collection, graph)
+print("Seeds:", result['seed'])
+print("Expanded:", result['expanded'])
+print(f"Total context notes: {len(result['context'])}")
+
+# print(list(graph.edges()))
+# print(notes['Neural Network']['links'])
+# print(notes['Tensor']['links'])
