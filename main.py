@@ -1,4 +1,4 @@
-from valult_reader import load_notes
+from vault_reader import load_notes
 from embedder import embed_vault, get_collection
 import os
 from dotenv import load_dotenv
