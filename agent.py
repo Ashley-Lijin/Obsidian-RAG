@@ -1,4 +1,13 @@
-import subprocess
+from matplotlib.style import context
+from requests import request
+import requests
+import os
+import dotenv
+
+dotenv.load_dotenv()
+
+OLLAMA_HOST = os.getenv("OLLAMA_HOST")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL")
 
 def build_prompt(query: str, retrieval: dict) -> str:
     context_text = ""
@@ -24,5 +33,10 @@ def build_prompt(query: str, retrieval: dict) -> str:
 
 def ask(query: str, retrieval: dict) -> str:
     prompt = build_prompt(query, retrieval)
-    result = subprocess.run(['gemini', '-p', prompt], capture_output=True, text=True)
-    return result.stdout
+    response = requests.post(f"{OLLAMA_HOST}/api/generate", json={
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "context": context,
+        "stream": False,
+    })
+    return response.json()['response']

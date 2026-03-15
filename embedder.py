@@ -3,7 +3,7 @@ from chromadb.utils import embedding_functions
 from chunker import chunk_text
 
 def get_collection(collection_name: str = "Obsidain_valult"):
-    chroma_client = chromadb.PersistentClient(path='./.chroma_db')
+    chroma_client = chromadb.PersistentClient(path='/Users/ashleylijin/Developer/Obsidian RAG/.chroma_db')
     collection = chroma_client.get_or_create_collection(
         name=collection_name,
         embedding_function=embedding_functions.DefaultEmbeddingFunction()

@@ -14,8 +14,10 @@ embed_vault(notes, collection)
 print(collection.count())
 
 graph = build_graph(notes)
-
-query = "say an example where i spoted confirmation bias recently"
-retrieval = retrieve(query, notes, collection, graph)
-response = ask(query, retrieval)
-print(response)
+while True:
+    query = input("> ")
+    if query == "exit":
+        break
+    retrieval = retrieve(query, notes, collection, graph)
+    response = ask(query, retrieval)
+    print(response)
