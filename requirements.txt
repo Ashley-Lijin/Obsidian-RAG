@@ -4,3 +4,4 @@ matplotlib
 chromadb
 mcp
 requests
+google-genai
