@@ -1,10 +1,10 @@
-from vault_reader import load_notes
-from embedder import embed_vault, get_collection
+from src.ingestion.vault_reader import load_notes
+from src.retrieval.embedder import embed_vault, get_collection
 import os
 from dotenv import load_dotenv
-from retriever import retrieve
-from graph_builder import build_graph
-from agent import ask
+from src.retrieval.retriever import retrieve
+from src.retrieval.graph_builder import build_graph
+from src.agent.agent import ask
 
 load_dotenv()
 

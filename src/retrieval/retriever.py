@@ -1,5 +1,3 @@
-from embedder import get_collection
-from graph_builder import build_graph
 import networkx as nx
 
 def retrieve(query: str, notes: dict, collection, graph, top_k: int = 3, depth: int = 1) -> dict:
@@ -7,15 +5,15 @@ def retrieve(query: str, notes: dict, collection, graph, top_k: int = 3, depth: 
     query_texts=[query],
     n_results=top_k
     )
-    
-    
+
+
     seeds = set()
 
     for meta in results['metadatas'][0]:
         seeds.add(meta['note_name'])
 
     expanded = set()
-    
+
     for seed in seeds:
         if seed in graph:
             undirected = graph.to_undirected()
@@ -42,5 +40,3 @@ def retrieve(query: str, notes: dict, collection, graph, top_k: int = 3, depth: 
         "expanded" : list(expanded),
         "context" : context
     }
-    
-    

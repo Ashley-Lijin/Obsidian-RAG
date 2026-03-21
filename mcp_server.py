@@ -1,8 +1,8 @@
 from mcp.server.fastmcp import FastMCP
-from vault_reader import load_notes
-from embedder import get_collection, embed_vault
-from retriever import retrieve
-from graph_builder import build_graph
+from src.ingestion.vault_reader import load_notes
+from src.retrieval.embedder import get_collection
+from src.retrieval.retriever import retrieve
+from src.retrieval.graph_builder import build_graph
 from pathlib import Path
 import os
 from dotenv import load_dotenv

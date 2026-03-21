@@ -1,6 +1,6 @@
 import chromadb
 from chromadb.utils import embedding_functions
-from chunker import chunk_text
+from src.ingestion.chunker import chunk_text
 
 def get_collection(collection_name: str = "Obsidain_valult"):
     chroma_client = chromadb.PersistentClient(path='/Users/ashleylijin/Developer/Obsidian RAG/.chroma_db')
@@ -41,4 +41,3 @@ def embed_vault(notes: dict, collection):
             documents=document,
             metadatas=metadata
         )
-
