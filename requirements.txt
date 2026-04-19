@@ -5,3 +5,4 @@ chromadb
 mcp
 requests
 google-genai
+sentence-transformers

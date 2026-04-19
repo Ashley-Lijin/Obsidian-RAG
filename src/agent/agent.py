@@ -1,14 +1,21 @@
-import requests
-import json
 # from google import genai
 # from google.genai import types
 import os
+from ollama import Client
 import dotenv
 
 dotenv.load_dotenv()
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST")
+OLLAMA_API = os.getenv("OLLAMA_API")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL")
+
+SHORT_TERM_WINDOW = 6   # number of recent messages to keep verbatim
+COMPRESS_THRESHOLD = 10  # compress when history exceeds this many messages
+
+
+def _make_client() -> Client:
+    return Client(host=OLLAMA_HOST, headers={'Authorization': f"Bearer {OLLAMA_API}"})
 
 # GEMINI_API = os.getenv("GEMINI_API")
 # GEMINI_MODEL = os.getenv("GEMINI_MODEL")
@@ -33,6 +40,32 @@ Notes:
 {sources_text}"""
 
 
+def compress_history(old_messages: list, existing_summary: str) -> str:
+    """Summarize old messages into the long-term memory string."""
+    client = _make_client()
+    history_text = "\n".join(f"{m['role']}: {m['content']}" for m in old_messages)
+    prompt = (
+        f"Existing summary:\n{existing_summary}\n\n" if existing_summary else ""
+    ) + (
+        f"New conversation to add:\n{history_text}\n\n"
+        "Update the summary to capture only the important facts and topics discussed. Be concise.\n"
+        "Summary:"
+    )
+    response = client.generate(model=OLLAMA_MODEL, prompt=prompt)
+    return response.response.strip()
+
+
+def manage_memory(history: list, long_term_summary: str) -> tuple[list, str]:
+    """Compress old messages into long-term summary when history grows too large."""
+    if len(history) <= COMPRESS_THRESHOLD:
+        return history, long_term_summary
+
+    to_compress = history[:-SHORT_TERM_WINDOW]
+    short_term = history[-SHORT_TERM_WINDOW:]
+    long_term_summary = compress_history(to_compress, long_term_summary)
+    return short_term, long_term_summary
+
+
 def rewrite_query(query: str, history: list) -> str:
     """Rewrite a follow-up query into a self-contained search query using recent history."""
     if not history:
@@ -45,6 +78,8 @@ def rewrite_query(query: str, history: list) -> str:
         role = "User" if msg["role"] == "user" else "Assistant"
         history_text += f"{role}: {msg['content']}\n"
 
+    client = _make_client()
+
     prompt = (
         f"Conversation:\n{history_text}\n"
         f"Follow-up: {query}\n\n"
@@ -52,12 +87,8 @@ def rewrite_query(query: str, history: list) -> str:
         "Query:"
     )
 
-    response = requests.post(f"{OLLAMA_HOST}/api/generate", json={
-        "model": OLLAMA_MODEL,
-        "prompt": prompt,
-        "stream": False,
-    })
-    rewritten = response.json().get("response", query).strip()
+    response = client.generate(model=OLLAMA_MODEL, prompt=prompt)
+    rewritten = response.response.strip() or query
     return rewritten
 
     # --- Gemini version (commented out) ---
@@ -65,7 +96,38 @@ def rewrite_query(query: str, history: list) -> str:
     # return response.text.strip()
 
 
-def ask(query: str, retrieval: dict, history: list = []) -> str:
+def is_context_sufficient(query: str, context: list) -> bool:
+    client = _make_client()
+    context_text = "\n".join(f"{c['note_name']}: {c['content']}" for c in context)
+    prompt = (
+        f"Context:\n{context_text}\n\n"
+        f"Question: {query}\n\n"
+        "If the question asks about multiple items (e.g. 'explain each '), check whether EVERY "
+        "specific item mentioned or implied by the question has a complete explanation in the context. "
+        "If any item is missing or only partially covered, answer NO. "
+        "Only answer YES if every aspect of the question can be completely answered from the context above. "
+        "Reply YES or NO only."
+    )
+    response = client.generate(model=OLLAMA_MODEL, prompt=prompt)
+    return response.response.strip().upper().startswith("YES")
+
+
+def generate_subqueries(query: str, context: list) -> list[str]:
+    client = _make_client()
+    context_text = "\n".join(f"{c['note_name']}: {c['content']}" for c in context)
+    prompt = (
+        f"Question: {query}\n\n"
+        f"Current context:\n{context_text}\n\n"
+        "List the specific named topics, items, or concepts from the question that are NOT fully explained "
+        "in the context above. For each missing item, write one short search query (the item name is enough). "
+        "One query per line. No numbering, no explanation. Max 5 queries."
+    )
+    response = client.generate(model=OLLAMA_MODEL, prompt=prompt)
+    lines = [l.strip() for l in response.response.strip().splitlines() if l.strip()]
+    return lines[:3]
+
+
+def ask(query: str, retrieval: dict, history: list = [], long_term_summary: str = "") -> str:
     system_prompt = build_system_prompt(retrieval)
 
     # Convert history from Ollama format to Gemini format
@@ -75,25 +137,24 @@ def ask(query: str, retrieval: dict, history: list = []) -> str:
     #     role = "model" if msg["role"] == "assistant" else msg["role"]
     #     gemini_history.append({"role": role, "parts": [{"text": msg["content"]}]})
 
+    if long_term_summary:
+        system_prompt += f"\n\nConversation summary so far:\n{long_term_summary}"
+
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": query})
 
-    response = requests.post(f"{OLLAMA_HOST}/api/chat", json={
-        "model": OLLAMA_MODEL,
-        "messages": messages,
-        "stream": True,
-    }, stream=True)
+    client = _make_client()
+    response = client.chat(model=OLLAMA_MODEL, messages=messages, stream=True)
+        
 
     full_response = ""
-    for line in response.iter_lines():
-        if line:
-            chunk = json.loads(line)
-            token = chunk.get("message", {}).get("content", "")
-            print(token, end="", flush=True)
-            full_response += token
-            if chunk.get("done"):
-                break
+    for chunk in response:
+        token = chunk.message.content or ""
+        print(token, end="", flush=True)
+        full_response += token
+        if chunk.done:
+            break
     print()
 
     return full_response
