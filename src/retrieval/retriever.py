@@ -11,18 +11,6 @@ def _get_reranker() -> CrossEncoder:
     return _reranker
 
 
-def _best_chunk_for_note(note_name: str, query: str, collection) -> str | None:
-    """Query ChromaDB for the single best chunk of a given note."""
-    results = collection.query(
-        query_texts=[query],
-        n_results=1,
-        where={"note_name": note_name},
-        include=["documents"]
-    )
-    docs = results.get("documents", [[]])
-    return docs[0][0] if docs and docs[0] else None
-
-
 def retrieve(query: str, notes: dict, collection, graph, top_k: int = 6, depth: int = 1, max_expanded: int = 5, distance_threshold: float = 1.2) -> dict:
     results = collection.query(
         query_texts=[query],
@@ -46,14 +34,10 @@ def retrieve(query: str, notes: dict, collection, graph, top_k: int = 6, depth: 
         chunk["score"] = float(score)
     chunks.sort(key=lambda x: x["score"], reverse=True)
 
-    # Pick seed notes from top-ranked chunks (best chunk per note)
+    # Pick seed notes from top-ranked chunks (deduplicate by note)
     seeds = set()
-    best_chunk: dict[str, str] = {}
     for chunk in chunks:
-        name = chunk["note_name"]
-        if name not in best_chunk:
-            seeds.add(name)
-            best_chunk[name] = chunk["text"]
+        seeds.add(chunk["note_name"])
         if len(seeds) >= top_k:
             break
 
@@ -67,16 +51,10 @@ def retrieve(query: str, notes: dict, collection, graph, top_k: int = 6, depth: 
     expanded = expanded - seeds
     expanded = set(list(expanded)[:max_expanded])
 
-    # Fetch best chunk for expanded notes not already in results
-    for name in expanded:
-        if name not in best_chunk:
-            chunk_text = _best_chunk_for_note(name, query, collection)
-            best_chunk[name] = chunk_text if chunk_text else notes[name]["content"][:500]
-
     context = [
-        {"note_name": name, "content": best_chunk[name]}
+        {"note_name": name, "content": notes[name]["content"]}
         for name in seeds | expanded
-        if name in best_chunk
+        if name in notes
     ]
 
     return {
