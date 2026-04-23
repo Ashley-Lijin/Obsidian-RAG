@@ -1,6 +1,7 @@
 from qdrant_client import QdrantClient
 from qdrant_client import models
 from sentence_transformers import SentenceTransformer
+from fastembed import SparseTextEmbedding
 from src.ingestion.chunker import chunk_text
 import hashlib
 import json
@@ -13,6 +14,7 @@ COLLECTION_NAME = "obsidian_vault"
 VECTOR_SIZE = 384  # all-MiniLM-L6-v2
 
 _embedder = None
+_sparse_embedder = None
 
 
 def get_embedder() -> SentenceTransformer:
@@ -22,6 +24,13 @@ def get_embedder() -> SentenceTransformer:
     return _embedder
 
 
+def get_sparse_embedder() -> SparseTextEmbedding:
+    global _sparse_embedder
+    if _sparse_embedder is None:
+        _sparse_embedder = SparseTextEmbedding(model_name="Qdrant/bm25")
+    return _sparse_embedder
+
+
 def _str_to_uuid(s: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, s))
 
@@ -29,11 +38,28 @@ def _str_to_uuid(s: str) -> str:
 def get_collection(collection_name: str = COLLECTION_NAME):
     client = QdrantClient(path=DB_PATH)
     existing = {c.name for c in client.get_collections().collections}
+
+    if collection_name in existing:
+        info = client.get_collection(collection_name)
+        has_sparse = info.config.params.sparse_vectors is not None
+        if not has_sparse:
+            # Old single-vector schema — recreate for hybrid support
+            client.delete_collection(collection_name)
+            existing.discard(collection_name)
+            if MANIFEST_PATH.exists():
+                MANIFEST_PATH.write_text("{}")
+
     if collection_name not in existing:
         client.create_collection(
             collection_name=collection_name,
-            vectors_config=models.VectorParams(size=VECTOR_SIZE, distance=models.Distance.COSINE),
+            vectors_config={
+                "dense": models.VectorParams(size=VECTOR_SIZE, distance=models.Distance.COSINE)
+            },
+            sparse_vectors_config={
+                "sparse": models.SparseVectorParams()
+            },
         )
+
     return client, collection_name
 
 
@@ -66,16 +92,15 @@ def _delete_note_chunks(client: QdrantClient, collection_name: str, note_name: s
 def embed_vault(notes: dict, collection):
     client, collection_name = collection
     embedder = get_embedder()
+    sparse_embedder = get_sparse_embedder()
     manifest = _load_manifest()
     current_names = set(notes.keys())
     manifest_names = set(manifest.keys())
 
-    # Delete chunks for notes removed from the vault
     for name in manifest_names - current_names:
         _delete_note_chunks(client, collection_name, name)
         del manifest[name]
 
-    # Embed only new or changed notes
     for note_name, note_data in notes.items():
         content = note_data["content"]
         h = _hash(content)
@@ -85,23 +110,32 @@ def embed_vault(notes: dict, collection):
         chunks = chunk_text(content)
         safe_name = note_name.replace(" ", "_")
 
-        # Remove stale chunks before upserting
         _delete_note_chunks(client, collection_name, note_name)
 
-        embeddings = embedder.encode(chunks).tolist()
-        points = [
-            models.PointStruct(
-                id=_str_to_uuid(f"{safe_name}__chunk_{i}"),
-                vector=embedding,
-                payload={
-                    "note_name": note_name,
-                    "chunk_index": i,
-                    "links": ",".join(note_data["links"]),
-                    "text": chunk,
-                },
+        dense_embeddings = embedder.encode(chunks).tolist()
+        sparse_embeddings = list(sparse_embedder.embed(chunks))
+
+        points = []
+        for i, (chunk, dense, sparse) in enumerate(zip(chunks, dense_embeddings, sparse_embeddings)):
+            chunk_id = f"{safe_name}__chunk_{i}"
+            points.append(
+                models.PointStruct(
+                    id=_str_to_uuid(chunk_id),
+                    vector={
+                        "dense": dense,
+                        "sparse": models.SparseVector(
+                            indices=sparse.indices.tolist(),
+                            values=sparse.values.tolist(),
+                        ),
+                    },
+                    payload={
+                        "note_name": note_name,
+                        "chunk_index": i,
+                        "links": ",".join(note_data["links"]),
+                        "text": chunk,
+                    },
+                )
             )
-            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings))
-        ]
 
         client.upsert(collection_name=collection_name, points=points)
         manifest[note_name] = h

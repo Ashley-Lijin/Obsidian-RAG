@@ -2,6 +2,7 @@ dotenv
 networkx
 matplotlib
 qdrant-client
+fastembed
 mcp
 requests
 google-genai
