@@ -2,7 +2,7 @@ from pathlib import Path
 import re
 import json
 
-NOTES_CACHE_PATH = Path("/Users/ashleylijin/Developer/Obsidian RAG/.chroma_db/notes_cache.json")
+NOTES_CACHE_PATH = Path("/Users/ashleylijin/Developer/Obsidian RAG/.qdrant_db/notes_cache.json")
 
 
 def load_notes(vault_path: str) -> dict[str, dict[str, str | list[str]]]:
@@ -39,6 +39,7 @@ def load_notes(vault_path: str) -> dict[str, dict[str, str | list[str]]]:
         updated = True
 
     if updated:
+        NOTES_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
         NOTES_CACHE_PATH.write_text(json.dumps(cache, indent=2))
 
     return vault

@@ -1,5 +1,6 @@
 import networkx as nx
 from sentence_transformers import CrossEncoder
+from src.retrieval.embedder import get_embedder
 
 _reranker = None
 
@@ -11,18 +12,23 @@ def _get_reranker() -> CrossEncoder:
     return _reranker
 
 
-def retrieve(query: str, notes: dict, collection, graph, top_k: int = 6, depth: int = 1, max_expanded: int = 5, distance_threshold: float = 1.2) -> dict:
-    results = collection.query(
-        query_texts=[query],
-        n_results=top_k * 3,
-        include=["documents", "metadatas", "distances"]
-    )
+def retrieve(query: str, notes: dict, collection, graph, top_k: int = 4, depth: int = 1, max_expanded: int = 5, distance_threshold: float = 0.5) -> dict:
+    client, collection_name = collection
+    query_vector = get_embedder().encode(query).tolist()
 
-    # Collect chunks within relevance threshold
+    results = client.query_points(
+        collection_name=collection_name,
+        query=query_vector,
+        limit=top_k * 3,
+        with_payload=True,
+    ).points
+
+    # Qdrant returns cosine similarity scores; convert to distance (0=identical, 2=opposite)
     chunks = []
-    for doc, meta, dist in zip(results['documents'][0], results['metadatas'][0], results['distances'][0]):
+    for hit in results:
+        dist = 1.0 - hit.score
         if dist <= distance_threshold:
-            chunks.append({"text": doc, "note_name": meta['note_name'], "distance": dist})
+            chunks.append({"text": hit.payload["text"], "note_name": hit.payload["note_name"], "distance": dist})
 
     if not chunks:
         return {"seed": [], "expanded": [], "context": []}
@@ -60,5 +66,5 @@ def retrieve(query: str, notes: dict, collection, graph, top_k: int = 6, depth: 
     return {
         "seed": list(seeds),
         "expanded": list(expanded),
-        "context": context
+        "context": context,
     }

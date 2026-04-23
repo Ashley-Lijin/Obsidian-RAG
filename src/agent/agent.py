@@ -34,7 +34,8 @@ Rules:
 - Examples must come directly from the notes. Do NOT invent examples.
 - Do not repeat the same point twice.
 - Fix grammar when presenting the content, but keep the meaning identical.
-- If the answer is not in the notes, say "I don't have that in my notes."
+- For questions asking about multiple items or types, explain EACH one fully using the notes. Do NOT list an item without explanation — if a specific item has no detail in the notes, write "No details found in notes" under it.
+- If the answer is not in the notes at all, say "I don't have that in my notes."
 
 Notes:
 {sources_text}"""
@@ -124,7 +125,7 @@ def generate_subqueries(query: str, context: list) -> list[str]:
     )
     response = client.generate(model=OLLAMA_MODEL, prompt=prompt)
     lines = [l.strip() for l in response.response.strip().splitlines() if l.strip()]
-    return lines[:3]
+    return lines[:5]
 
 
 def ask(query: str, retrieval: dict, history: list = [], long_term_summary: str = "") -> str:

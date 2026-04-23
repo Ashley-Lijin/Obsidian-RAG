@@ -57,3 +57,6 @@ faiss_index/
 # === Obsidian Vault (if local, don't commit vault contents) ===
 vault/
 *.md.bak
+
+# === Qdrant DB ===
+.qdrant_db/
