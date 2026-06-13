@@ -15,6 +15,7 @@ VECTOR_SIZE = 384  # all-MiniLM-L6-v2
 
 _embedder = None
 _sparse_embedder = None
+_qdrant_client = None
 
 
 def get_embedder() -> SentenceTransformer:
@@ -36,7 +37,10 @@ def _str_to_uuid(s: str) -> str:
 
 
 def get_collection(collection_name: str = COLLECTION_NAME):
-    client = QdrantClient(path=DB_PATH)
+    global _qdrant_client
+    if _qdrant_client is None:
+        _qdrant_client = QdrantClient(path=DB_PATH)
+    client = _qdrant_client
     existing = {c.name for c in client.get_collections().collections}
 
     if collection_name in existing:
